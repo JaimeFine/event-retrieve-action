@@ -32,30 +32,30 @@ This repository implements an **Event-Centric Architecture** for autonomous dron
 ### Structure:
 
 ```txt
-ERA/
-├── main.py                      # Entry point for running simulations and experiments
-├── pretrain.py                  # Pretraining scripts and experiments
-├── requirements.txt
-├── README.md                    # Project overview, usage notes, and experiments
-├── agents/                      # Agent-level code: models, memories, stabilizers
+event-retrieve-action/
+├── main.py
+├── macro.py
+├── agents/
 │   ├── __init__.py
-│   ├── agent.py                 # Agent class and behavior wrappers
-│   ├── encoder.py               # Event encoding neural network definitions
-│   ├── memory.py                # Replay buffer / memory mechanisms
-│   └── stabilizer.py            # Control/stabilization helpers (e.g., Lyapunov)
-├── core/                        # Core simulation components and controllers
+│   ├── agent.py
+│   ├── bank.py
+│   ├── encoder.py
+│   └── stabilizer.py
+├── challenger/
 │   ├── __init__.py
-│   ├── controllers.py           # Control policies and action translation
-│   ├── environment.py           # Isaac Sim world setup and intruder orchestration
-│   └── intruders.py             # Intruder object definitions (Drone, Bird, ...)
-├── data/                        # Retrieval + event-manifold pretraining project
-│   ├── expert_dataset.pt
-│   └── agent_pretrain.pt
-└── utils/                       # Utility helpers used across the project
+│   ├── core.py
+│   ├── situation.py
+│   └── velocity.py
+├── intruders/
+│   ├── __init__.py
+│   ├── base.py
+│   ├── bird.py
+│   ├── drone.py
+│   └── static.py
+└── trainer/
     ├── __init__.py
-    ├── data_logger.py           # Logging & experiment-data utilities
-    ├── scenarios.py             # Scenario definitions and presets
-    └── seeds.py                 # RNG / reproducibility helpers
+    ├── spawner.py
+    └── train.py
 ```
 
 > **Notes:**
