@@ -1,4 +1,5 @@
 import numpy as np
+from macro import MIN_DST, MAX_DST
 
 class EncounterSampler:
     def __init__(self, rng):
@@ -39,7 +40,7 @@ class EncounterSampler:
         approach_dir = np.cos(theta) * ego_dir + np.sin(theta) * v1
 
         # 3. Spawn Position
-        spawn_dist = self.rng.uniform(5, 12)
+        spawn_dist = self.rng.uniform(MIN_DST, MAX_DST)
         base_spawn = ego_pos + approach_dir * spawn_dist
 
         if abs(approach_dir[0]) < 0.9:

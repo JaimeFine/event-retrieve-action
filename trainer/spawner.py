@@ -6,7 +6,7 @@ from intruders import DroneIntruder, BirdIntruder, StaticObstacle
 from omni.isaac.core import World
 from isaacsim.core.prims import RigidPrim
 from .train import Trainer
-from macro import detection_threshold, ego
+from macro import detection_threshold, ego, NUM_INTRUDERS
 
 class Environment(Trainer):
     def __init__(self, seed):
@@ -23,7 +23,7 @@ class Environment(Trainer):
         self.scheduler = CurriculumScheduler(total_steps=500)
         self.spawner = AdversarialSpawner(self.rng)
 
-        self.num_intruders = 25
+        self.num_intruders = NUM_INTRUDERS
 
     def setup_environment(self):
         self.world.scene.add_default_ground_plane()

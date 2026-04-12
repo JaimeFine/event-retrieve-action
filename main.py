@@ -3,7 +3,7 @@ from omni.isaac.kit import SimulationApp
 
 simulation_app = SimulationApp({"headless": True})
 
-from macro import device, seeds
+from macro import device, seeds, total_epochs
 from trainer import Environment
 import torch
 import numpy as np
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     
     goal_rng = np.random.RandomState(42)
 
-    num_episodes = 5
+    num_episodes = total_epochs
     for episode in range(num_episodes):
         TOTAL = 0
         WARNING = 0

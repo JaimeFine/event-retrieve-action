@@ -36,7 +36,7 @@ class AdversarialSpawner:
 
     def _near_miss_case(self, ego_pos, ego_vel, difficulty):
         spawn_pos, velocity = self.sampler.sample_encounter(
-            ego_pos, ego_vel, difficulty * 0.7  # slightly easier
+            ego_pos, ego_vel, difficulty * 0.7
         )
         return [(spawn_pos, velocity)]
 

@@ -16,13 +16,23 @@ BATCH_SIZE = 16
 EPOCHS = 10
 
 # Random Initialization Seeds:
-seeds = 42
+seeds = 25
 
 # The Detection Threshold:
-detection_threshold = 5.0  # Meters
+detection_threshold = 3.0  # Meters
 
 # Colors:
 ego = np.array([0.0, 0.0, 1.5]) # Blue
 bird = np.array([0.0, 1.0, 0.0]) # Green
 drone = np.array([1.0, 0.0, 0.0]) # Red
 static = np.array([0.5, 0.5, 0.5]) # Grey
+
+# Total Epochs for the main loop:
+total_epochs = 5
+
+# Number of Intruders in the Environment:
+NUM_INTRUDERS = 25
+
+# Intruders Spawning Parameters:
+MAX_DST = 5.0
+MIN_DST = 3.0

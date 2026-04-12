@@ -35,7 +35,7 @@ class CurriculumScheduler:
 
         # Smooth ramp
         difficulty = np.clip(
-            0.2 + base_difficulty + adaptive_term,
+            0.5 + base_difficulty + adaptive_term,
             0.0, 1.0
         )
 
