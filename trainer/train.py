@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-from macro import device
+from macro import device, lambda_phys, lambda_perf
+from macro import SAFETY_THRESHOLD, COLLISION_CRITICAL
 from intruders import DroneIntruder, BirdIntruder
 from agents import EventCentricAgent
 
@@ -48,6 +49,7 @@ class Trainer():
             event_list, dtype=torch.float32, device=device
         ) if event_list else None
 
+    """the batch_size = 16 and epochs = 10 are ony defined here!!!"""
     def train_agent(self, batch_size=16, epochs=10):
         if len(self.experience_buffer) < batch_size:
             return
@@ -82,10 +84,6 @@ class Trainer():
                 log_probs = torch.log(weights + 1e-8)
                 J_perf = torch.sum(log_probs) * r_t
 
-                # Setting the heuristic lambda
-                lambda_phys = 0.1
-                lambda_perf = 1.0
-
                 # Total loss
                 batch_loss = batch_loss + lambda_phys * R_phys - \
                     lambda_perf * J_perf
@@ -107,13 +105,12 @@ class Trainer():
 
         print(f"[TRAINING EPOCH COMPLETE]")
 
-    def run(self, steps=750, episode_seed=42, TOTAL=0, COLLISION=0, WARNING=0):   # NOTE: 200 for 0.5 dt is 10 seconds
+    """Total, collision, warning are only here!!!"""
+    def run(self, steps, episode_seed, TOTAL=0, COLLISION=0, WARNING=0):   # NOTE: 200 for 0.5 dt is 10 seconds
         self.load_scenario(episode_seed)
         self.world.reset()
         self.experience_buffer = [] # Stores S_t
 
-        SAFETY_THRESHOLD = 1.5  # Meters
-        COLLISION_CRITICAL = 0.3 # Immediate crash distance
         goal_reached = 0
         dist_to_goal = 0.0
         ego_pos, _ = self.ego.get_world_pose()

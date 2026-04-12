@@ -3,7 +3,7 @@ from omni.isaac.kit import SimulationApp
 
 simulation_app = SimulationApp({"headless": True})
 
-from macro import device
+from macro import device, seeds
 from trainer import Environment
 import torch
 import numpy as np
@@ -11,7 +11,7 @@ import numpy as np
 if __name__ == "__main__":
     import os
 
-    sim = Environment(seed=42)
+    sim = Environment(seed=seeds)
     sim.setup_environment()
 
     successes = []
