@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-from macro import device, lambda_phys, lambda_perf
-from macro import SAFETY_THRESHOLD, COLLISION_CRITICAL
+from macro import device, lambda_phys, lambda_perf, BATCH_SIZE
+from macro import SAFETY_THRESHOLD, COLLISION_CRITICAL, EPOCHS
 from intruders import DroneIntruder, BirdIntruder
 from agents import EventCentricAgent
 
@@ -49,11 +49,7 @@ class Trainer():
             event_list, dtype=torch.float32, device=device
         ) if event_list else None
 
-    """the batch_size = 16 and epochs = 10 are ony defined here!!!"""
-    def train_agent(self, batch_size=16, epochs=10):
-        if len(self.experience_buffer) < batch_size:
-            return
-        
+    def train_agent(self, batch_size = BATCH_SIZE, epochs=EPOCHS):
         for _ in range(epochs):
             # [GPU OPTIMIZATION] Vectorized experience sampling
             indices = np.random.choice(
@@ -116,6 +112,7 @@ class Trainer():
         ego_pos, _ = self.ego.get_world_pose()
         prev_dist = np.linalg.norm(self.ego_goal - ego_pos)
         success = 0
+        num = 0
 
         for i in range(steps):
             self.manage_intruders(current_step=i)
@@ -201,9 +198,9 @@ class Trainer():
             self.experience_buffer.append(
                 (event_list, final_action, reward, event_next)
             )
+            num += 1
             
-            # NOTE: Careful with here:
-            if i % 100 == 0:
+            if num % (BATCH_SIZE * 2) == 0:
                 self.train_agent()
 
             z_next = self.agent.encoder(
@@ -218,14 +215,16 @@ class Trainer():
                     z_next.detach() if z_next is not None else None
                 )
 
-            if i % 50 == 0:   # every 50 steps (tune this)
+            if num % BATCH_SIZE == 0:
                 self.agent.memory.build_index()
 
             # print(f"[LOGGED S_t] Reward: {reward.item()}")
 
+        self.train_agent()
+
         status = "SUCCESS" if goal_reached else "TIMEOUT/CRASH"
         print(f"--- Episode Summary: {status} | \
             Final Dist: {dist_to_goal:.2f}m ---")
-        print(f"[COMPLETE] Collected {len(self.experience_buffer)} experiences.")
+        print(f"[COMPLETE] Collected {num} experiences.")
 
         return success, COLLISION, WARNING, dist_to_goal

@@ -1,9 +1,10 @@
 import numpy as np
 from .base import BaseIntruder
+from macro import static
 
 class StaticObstacle(BaseIntruder):
     def __init__(self, name, position):
-        super().__init__(name, position, color=np.array([0.5, 0.5, 0.5]))
+        super().__init__(name, position, color=static)
 
     def apply_behavior(self):
         # Environment constraints (buildings, poles) do not move

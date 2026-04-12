@@ -1,5 +1,6 @@
 from .base import BaseIntruder
 import numpy as np
+from macro import bird
 
 class BirdIntruder(BaseIntruder):   # GREEN
     def __init__(
@@ -7,7 +8,7 @@ class BirdIntruder(BaseIntruder):   # GREEN
         frequency=2.0, amplitude=2.0
     ):
         super().__init__(
-            name, position, color=np.array([0.0, 1.0, 0.0]), radius=0.15
+            name, position, color=bird, radius=0.15
         )
         self.base_velocity = base_velocity if base_velocity is not None \
             else np.array([-2.0, 0.0, 0.0])
