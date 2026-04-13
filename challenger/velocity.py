@@ -62,9 +62,11 @@ class EncounterSampler:
 
         spawn_pos = base_spawn + lateral_noise
 
+        future_ego_pos = ego_pos + (ego_vel * ttc)
+
         # 4. Near-Miss Target
         offset_dir = v2
-        target_point = ego_pos + offset_dir * d_min
+        target_point = future_ego_pos + offset_dir * d_min
 
         # 5. Velocity Solve
         velocity = (target_point - spawn_pos) / ttc

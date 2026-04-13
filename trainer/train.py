@@ -4,6 +4,7 @@ from macro import device, lambda_phys, lambda_perf, BATCH_SIZE
 from macro import SAFETY_THRESHOLD, COLLISION_CRITICAL, EPOCHS
 from intruders import DroneIntruder, BirdIntruder
 from agents import EventCentricAgent
+from intruders import apply_multiagent_intruder_behavior
 
 class Trainer():
     def __init__(self):
@@ -97,9 +98,9 @@ class Trainer():
                 # Ensures ||z_{t+1}||^2 - ||z_t||^2 < 0 as per Eq. 11
                 self.agent.enforce_contractive_dynamics()
                 
-                print(f"[TRAINING] Loss: {total_loss.item():.4f}")
+                # print(f"[TRAINING] Loss: {total_loss.item():.4f}")
 
-        print(f"[TRAINING EPOCH COMPLETE]")
+        # print(f"[TRAINING EPOCH COMPLETE]")
 
     """Total, collision, warning are only here!!!"""
     def run(self, steps, episode_seed, TOTAL=0, COLLISION=0, WARNING=0):   # NOTE: 200 for 0.5 dt is 10 seconds
@@ -117,8 +118,12 @@ class Trainer():
         for i in range(steps):
             self.manage_intruders(current_step=i)
 
-            for intruder in self.active_scenario_intruders:
-                intruder.apply_behavior()
+            if len(self.active_scenario_intruders) > 0:
+                intruder_loss = apply_multiagent_intruder_behavior(
+                    self.intruder_controller,
+                    self.ego,
+                    self.active_scenario_intruders
+                )
 
             # 1. Perception: Get the state at time t
             event_list = self.detection()
@@ -200,8 +205,8 @@ class Trainer():
             )
             num += 1
             
-            if num % (BATCH_SIZE * 2) == 0:
-                self.train_agent()
+            # if num % (BATCH_SIZE * 2) == 0:
+                # self.train_agent()
 
             z_next = self.agent.encoder(
                 event_next
@@ -215,7 +220,7 @@ class Trainer():
                     z_next.detach() if z_next is not None else None
                 )
 
-            if num % BATCH_SIZE == 0:
+            if num % BATCH_SIZE * 5 == 0:
                 self.agent.memory.build_index()
 
             # print(f"[LOGGED S_t] Reward: {reward.item()}")
