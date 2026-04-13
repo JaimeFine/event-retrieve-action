@@ -9,6 +9,12 @@ class AdversarialSpawner:
     def spawn_event(self, ego_pos, ego_vel, difficulty):
         event_type = self.rng.choice([
             "collision_course",
+            "collision_course",
+            "collision_course",
+            "collision_course",
+            "collision_course",
+            "multi_conflict",
+            "multi_conflict",
             "near_miss",
             "crossing",
             "multi_conflict"

@@ -14,7 +14,7 @@ class Trainer():
         self.experience_buffer = []
 
     def detection(self):
-        """Creates the Event List E_t from teh simulation state."""
+        """Creates the Event List E_t from the simulation state."""
         ego_pos, _ = self.ego.get_world_pose()
         ego_vel = self.ego.get_linear_velocity()
         event_list = []
@@ -111,7 +111,9 @@ class Trainer():
         print(f"[TRAINING EPOCH COMPLETE]")
 
     """Total, collision, warning are only here!!!"""
-    def run(self, steps, episode_seed, TOTAL=0, COLLISION=0, WARNING=0):   # NOTE: 200 for 0.5 dt is 10 seconds
+    def run(self, steps, episode_seed):   # NOTE: 200 for 0.5 dt is 10 seconds
+        WARNING = 0
+        COLLISION = 0
         self.load_scenario(episode_seed)
         self.world.reset()
         self.experience_buffer = [] # Stores S_t
@@ -122,6 +124,7 @@ class Trainer():
         prev_dist = np.linalg.norm(self.ego_goal - ego_pos)
         success = 0
         num = 0
+        total_step = 0
 
         for i in range(steps):
             self.manage_intruders(current_step=i)
@@ -144,12 +147,13 @@ class Trainer():
             # --- External engine force ---
             # base engine pulling at 5.0 m/s toward the goal
             base_vel = torch.tensor(
-                    dir_to_goal * 3.0, dtype=torch.float32, device=device
+                    dir_to_goal * 3, dtype=torch.float32, device=device
             )
 
             if event_list is None:
                 final_action = base_vel
             else:
+                total_step += 1
                 # 2. Decision Making: Calculate Action at time t
                 action, z_t, _, _ = self.agent.select_action(event_list, k=5)
 
@@ -169,13 +173,13 @@ class Trainer():
                 goal_reached = 1
                 success = 1
                 # Give a massive reward for finishing
-                reward = torch.tensor([50.0], device=device) 
+                reward = torch.tensor([10.0], device=device) 
                 break
 
             # 5. Reward: Calculate r_t (NOTE: A simple heuristic for now)
             if event_next is None:
                 reward = torch.tensor(
-                    [1.0], dtype=torch.float32, device=device
+                    [0.5], dtype=torch.float32, device=device
                 )  # Successfully cleared the threat
             else:
                 # event_next: (N, 13)
@@ -199,9 +203,7 @@ class Trainer():
                     print("[WARNING] Collision might happen!!!")
                     WARNING += 1
                 else:
-                    reward_val = 1 * progress   # Add progress
-
-                TOTAL += 1     # For the debugging
+                    reward_val = 0.1 * progress   # Add progress
 
                 reward = torch.tensor(
                     [reward_val], dtype=torch.float32, device=device
@@ -235,6 +237,9 @@ class Trainer():
 
             # print(f"[LOGGED S_t] Reward: {reward.item()}")
 
+        intruder_loss = self.intruder_controller.update()
+        print(f"[INTRUDER TRAINING] Loss: {intruder_loss:.4f}")
+
         self.train_agent()
 
         status = "SUCCESS" if goal_reached else "TIMEOUT/CRASH"
@@ -242,4 +247,4 @@ class Trainer():
             Final Dist: {dist_to_goal:.2f}m ---")
         print(f"[COMPLETE] Collected {num} experiences.")
 
-        return success, COLLISION, WARNING, dist_to_goal
+        return success, COLLISION, WARNING, dist_to_goal, total_step

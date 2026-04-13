@@ -18,7 +18,7 @@ if __name__ == "__main__":
     collisions = []
 
     # 1. Load Pretrained Knowledge
-    if os.path.exists("agent_finetuned.pt"):
+    if os.path.exists("agent_pretrained.pt"):
         print("Loading pretrained weights...")
         checkpoint = torch.load("agent_pretrained.pt", map_location=device)
         sim.agent.encoder.load_state_dict(checkpoint["encoder"])
@@ -52,9 +52,6 @@ if __name__ == "__main__":
 
     num_episodes = total_epochs
     for episode in range(num_episodes):
-        TOTAL = 0
-        WARNING = 0
-        COLLISION = 0
         # 1. Sample random direction (uniform on sphere)
         direction = goal_rng.normal(size=3)
         direction[2] = abs(direction[2]) + 0.1  # Z-direction must be positive
@@ -74,25 +71,15 @@ if __name__ == "__main__":
         print(f"Distance:  {np.linalg.norm(sim.ego_goal - sim.ego_start):.2f} m")
         print(f"=====================================================")
 
-        s, c, w, d = sim.run(steps=1500, episode_seed=(100 + episode))
-
-        TOTAL = 1500 # Or however many steps the episode actually took
-        COLLISION = c
-        WARNING = w
+        s, c, w, d, t = sim.run(steps=1500, episode_seed=(100 + episode))
 
         successes.append(s)
         collisions.append(c > 0)
-        print(f"Success Rate: {s:.3f}")
-        print(f"Collision Rate: {c:.3f}")
-
-        if TOTAL == 0:
-            TOTAL = 1
-            print(f"TOTAL: {TOTAL}")
 
         print(f"\n=====================================================")
-        print(f"COLLISION: {COLLISION / TOTAL}")
-        print(f"WARNING: {WARNING / TOTAL}")
-        print(f"SUCCESS: {(TOTAL - WARNING - COLLISION) / TOTAL}")
+        print(f"COLLISION: {c / t}")
+        print(f"WARNING: {w / t}")
+        print(f"SUCCESS: {(t - w - c) / t}")
         print(f"=====================================================")
 
     print(f"Success Rate: {np.mean(successes):.3f}")

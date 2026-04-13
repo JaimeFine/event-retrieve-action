@@ -57,7 +57,7 @@ class MultiAgentIntruderController:
             dist = dists[i]
 
             # --- COLLISION REWARD (PRIMARY OBJECTIVE) ---
-            if dist < 0:
+            if dist < 0.5:
                 r = 50.0
 
             # --- DANGEROUS ZONE ---
@@ -145,8 +145,3 @@ def apply_multiagent_intruder_behavior(controller, ego, intruders):
 
     # Store trajectories
     controller.store(log_probs, rewards)
-
-    # ---- UPDATE (every step or every few steps) ----
-    loss = controller.update()
-
-    return loss
