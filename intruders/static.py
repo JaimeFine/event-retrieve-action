@@ -4,7 +4,7 @@ from macro import static
 
 class StaticObstacle(BaseIntruder):
     def __init__(self, name, position):
-        super().__init__(name, position, color=static)
+        super().__init__(name, position, color=static, radius=1.5)
 
     def apply_behavior(self):
         # Environment constraints (buildings, poles) do not move
