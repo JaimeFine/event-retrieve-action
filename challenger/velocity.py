@@ -15,7 +15,7 @@ class EncounterSampler:
         """
 
         # 1. Difficulty Mapping
-        ttc = np.interp(difficulty, [0, 1], [5.0, 1.0])
+        ttc = np.interp(difficulty, [0, 1], [2.5, 0.25])
         d_min = np.interp(difficulty, [0, 1], [3.0, 0.3])
         speed_min, speed_max = 2.0, 6.0
 

@@ -3,7 +3,7 @@ import numpy as np
 from isaacsim.core.api.objects import DynamicSphere
 
 class BaseIntruder:
-    def __init__(self, name, position, color, radius=0.3):
+    def __init__(self, name, position, color, radius=0.5):
         self.name = name
         self.initial_position = np.array(position)
         self.radius = radius

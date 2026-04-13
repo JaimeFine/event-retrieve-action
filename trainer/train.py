@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from macro import device, lambda_phys, lambda_perf, BATCH_SIZE
-from macro import SAFETY_THRESHOLD, COLLISION_CRITICAL, EPOCHS
+from macro import SAFETY_THRESHOLD, EPOCHS
 from intruders import DroneIntruder, BirdIntruder
 from agents import EventCentricAgent
 from intruders import apply_multiagent_intruder_behavior
@@ -18,6 +18,7 @@ class Trainer():
         ego_pos, _ = self.ego.get_world_pose()
         ego_vel = self.ego.get_linear_velocity()
         event_list = []
+        radii_list = []
 
         for intruder in self.active_scenario_intruders:
             pos, vel = intruder.get_state()
@@ -46,9 +47,16 @@ class Trainer():
                     rel_vel.tolist() + s_global
                 event_list.append(event)
 
-        return torch.tensor(
-            event_list, dtype=torch.float32, device=device
-        ) if event_list else None
+                radii_list.append(intruder.radius)
+
+        return (
+            torch.tensor(
+                event_list, dtype=torch.float32, device=device
+            ) if event_list else None,
+            torch.tensor(
+                radii_list, dtype=torch.float32, device=device
+            ) if event_list else None
+        )
 
     def train_agent(self, batch_size = BATCH_SIZE, epochs=EPOCHS):
         for _ in range(epochs):
@@ -98,9 +106,9 @@ class Trainer():
                 # Ensures ||z_{t+1}||^2 - ||z_t||^2 < 0 as per Eq. 11
                 self.agent.enforce_contractive_dynamics()
                 
-                # print(f"[TRAINING] Loss: {total_loss.item():.4f}")
+                print(f"[TRAINING] Loss: {total_loss.item():.4f}")
 
-        # print(f"[TRAINING EPOCH COMPLETE]")
+        print(f"[TRAINING EPOCH COMPLETE]")
 
     """Total, collision, warning are only here!!!"""
     def run(self, steps, episode_seed, TOTAL=0, COLLISION=0, WARNING=0):   # NOTE: 200 for 0.5 dt is 10 seconds
@@ -126,7 +134,7 @@ class Trainer():
                 )
 
             # 1. Perception: Get the state at time t
-            event_list = self.detection()
+            event_list, _ = self.detection()
             z_t = None
 
             ego_pos, _ = self.ego.get_world_pose()
@@ -152,7 +160,7 @@ class Trainer():
             # 3. Physics: Step the environment to apply a_t
             self.world.step(render=False)
             # 4. Perception: Get the resulting state at time t+1
-            event_next = self.detection()
+            event_next, radii = self.detection()
 
             # --- GOAL REACH CHECK ---
             dist_to_goal = np.linalg.norm(self.ego_goal - ego_pos)
@@ -174,12 +182,14 @@ class Trainer():
                 rel_positions = event_next[:, 1:4]  # (N, 3)
 
                 dists = torch.norm(rel_positions, dim=1)
-                min_dist = torch.min(dists).item()
+
+                surface_dists = dists - radii - 0.25
+                min_dist = torch.min(surface_dists).item()
 
                 progress = prev_dist - dist_to_goal
                 prev_dist = dist_to_goal
 
-                if min_dist < COLLISION_CRITICAL:
+                if min_dist < 0:
                     reward_val = -10.0
                     print("[COLLISION] Collision encountered!")
                     COLLISION += 1

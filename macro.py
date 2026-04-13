@@ -8,8 +8,7 @@ lambda_phys = 0.1
 lambda_perf = 1.0
 
 # Running Meta-Parameters:
-SAFETY_THRESHOLD = 1.5  # Meters
-COLLISION_CRITICAL = 0.5    # Meters
+SAFETY_THRESHOLD = 1.0  # Meters
 
 # Training Parameters:
 BATCH_SIZE = 16
