@@ -33,11 +33,7 @@ class MultiAgentIntruderController:
 
     def get_state(self, ego_pos, intruder_pos, intruder_vel):
         rel_pos = intruder_pos - ego_pos
-        return torch.tensor(
-            np.concatenate([rel_pos, intruder_vel]),
-            dtype=torch.float32,
-            device=device
-        )
+        return np.concatenate([rel_pos, intruder_vel]).astype(np.float32)
     
     def select_action(self, state):
         mean, std = self.policy(state)
@@ -77,71 +73,97 @@ class MultiAgentIntruderController:
         return rewards
 
     def store(self, log_probs, rewards):
-        self.log_probs.extend(log_probs)
-        self.rewards.extend(rewards)
+        self.log_probs.append(log_probs)
+        self.rewards.append(rewards)
 
     def update(self):
         if len(self.rewards) == 0:
             return 0.0
 
-        # Compute discounted returns
-        returns = []
-        G = 0
-        for r in reversed(self.rewards):
-            G = r + self.gamma * G
-            returns.insert(0, G)
+        rewards = torch.stack(self.rewards)
+        log_probs = torch.stack(self.log_probs) 
 
-        returns = torch.tensor(returns, dtype=torch.float32, device=device)
+        # Compute discounted returns
+        returns = torch.zeros_like(rewards)
+        G = torch.zeros(rewards.size(1), device=device)
+
+        for t in reversed(range(rewards.size(0))):
+            G = rewards[t] + self.gamma * G
+            returns[t] = G
+
         returns = (returns - returns.mean()) / (returns.std() + 1e-6)
 
-        loss = 0
-        for log_prob, G in zip(self.log_probs, returns):
-            loss += -log_prob * G   # POLICY GRADIENT
-
-        loss = loss / len(returns)
+        loss = -(log_probs * returns).mean()
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        # Clear buffer
         self.log_probs = []
         self.rewards = []
 
         return loss.item()
     
 def apply_multiagent_intruder_behavior(controller, ego, intruders):
-    ego_pos, _ = ego.get_world_pose()
+    # ---- GET EGO STATE ----
+    ego_pos_np, _ = ego.get_world_pose()
+    ego_pos = torch.tensor(ego_pos_np, dtype=torch.float32, device=device)
 
-    log_probs = []
-    intruder_positions = []
+    # ---- COLLECT ALL INTRUDER STATES (CPU → GPU ONCE) ----
+    positions = []
+    velocities = []
+    current_vels = []
 
-    # ---- ACTION PHASE ----
     for intr in intruders:
         pos, vel = intr.get_state()
-        state = controller.get_state(ego_pos, pos, vel)
+        positions.append(pos)
+        velocities.append(vel)
+        current_vels.append(intr.prim.get_linear_velocity())
 
-        action, log_prob = controller.select_action(state)
+    positions = torch.from_numpy(np.stack(positions)).float().to(device)
+    velocities = torch.from_numpy(np.stack(velocities)).float().to(device)
+    current_vels = torch.from_numpy(np.stack(current_vels)).float().to(device)
 
-        # Apply velocity update
-        current_vel = intr.prim.get_linear_velocity()
-        new_vel = current_vel + action.detach().cpu().numpy()
+    # ---- BUILD STATES (GPU) ----
+    rel_pos = positions - ego_pos  # broadcast
+    states = torch.cat([rel_pos, velocities], dim=1)  # [N, 6]
 
-        # Speed clamp
-        speed = np.linalg.norm(new_vel)
-        if speed > 6.0:
-            new_vel = new_vel / speed * 6.0
+    # ---- POLICY FORWARD (BATCHED) ----
+    means, stds = controller.policy(states)
+    dist = torch.distributions.Normal(means, stds)
 
-        intr.prim.set_linear_velocity(new_vel)
+    actions = dist.sample()
+    log_probs = dist.log_prob(actions).sum(dim=1)  # [N]
 
-        log_probs.append(log_prob)
-        intruder_positions.append(pos)
+    # ---- APPLY ACTIONS ----
+    new_vels = current_vels + actions
 
-    # ---- REWARD PHASE ----
-    rewards = controller.compute_multiagent_reward(
-        ego_pos,
-        intruder_positions
+    # Speed clamp (vectorized)
+    speeds = torch.norm(new_vels, dim=1, keepdim=True)  # [N,1]
+    scale = torch.clamp(6.0 / (speeds + 1e-6), max=1.0)  # [N,1]
+    new_vels = new_vels * scale  # broadcasts to [N,3]
+
+    # ---- WRITE BACK TO SIM (ONLY CPU CONVERSION HERE) ----
+    new_vels_np = new_vels.detach().cpu().numpy()
+
+    for i, intr in enumerate(intruders):
+        intr.prim.set_linear_velocity(new_vels_np[i])
+
+    # ---- REWARD (FULL GPU) ----
+    dists = torch.norm(positions - ego_pos, dim=1)
+    min_dist = torch.min(dists)
+
+    rewards = torch.where(
+        dists < 0.5,
+        torch.tensor(50.0, device=device),
+        torch.where(
+            dists < SAFETY_THRESHOLD,
+            10.0 / (dists + 1e-6),
+            -0.05 * dists
+        )
     )
 
-    # Store trajectories
+    rewards += 5.0 / (min_dist + 1e-6)
+
+    # ---- STORE ----
     controller.store(log_probs, rewards)
