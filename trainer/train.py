@@ -10,7 +10,12 @@ class Trainer():
     def __init__(self):
         self.agent = EventCentricAgent(latent_dim=128)
         self.ego_start = np.array([0.0, 0.0, 1.0], dtype=np.float32)
-        self.optimizer = torch.optim.Adam(self.agent.parameters(), lr=1e-5)
+        for param in self.agent.encoder.parameters():
+            param.requires_grad = False
+        self.agent.Gamma.requires_grad = False
+
+        trainable_params = [p for p in self.agent.parameters() if p.requires_grad]
+        self.optimizer = torch.optim.Adam(trainable_params, lr=1e-5)
         self.experience_buffer = []
 
     def detection(self):
@@ -72,41 +77,43 @@ class Trainer():
             )
             batch = [self.experience_buffer[i] for i in indices]
 
-            batch = [
-                (E_t, a_t, r_t, E_next) for (E_t, a_t, r_t, E_next) in batch
-                if E_t is not None and E_next is not None
-            ]
+            batch = [b for b in batch if b[0] is not None and b[3] is not None]
             if len(batch) == 0:
                 continue
 
             E_t_batch = torch.stack([b[0].mean(dim=0) for b in batch]).to(device)
+            a_batch = torch.stack([b[1] for b in batch]).to(device)
             r_batch = torch.stack([b[2] for b in batch]).to(device)
+            E_next_batch = torch.stack([b[3].mean(dim=0) for b in batch]).to(device)
 
-            z_batch = self.agent.encoder(E_t_batch)
+            # NOTE: Using torch.no_grad() prevents memory leaks from frozen networks
+            with torch.no_grad():
+                z_batch = self.agent.encoder(E_t_batch)
+                z_next_actual = self.agent.encoder(E_next_batch)
 
             weights_list = []
-            latents_list = []
+            valid_indices = []
 
-            for z in z_batch:
-                w, _, lat = self.agent.memory.retrieve(z, k=5)
+            for i in range(len(z_batch)):
+                w, _, _, _ = self.agent.memory.retrieve(z_batch[i], k=5)
                 if w is not None:
                     weights_list.append(w)
-                    latents_list.append(lat)
+                    valid_indices.append(i)
 
-            if len(weights_list) == 0:
-                continue
+            if not valid_indices: continue
 
             weights = torch.stack(weights_list)
-            latents = torch.stack(latents_list)
+            z_v = z_batch[valid_indices]
+            a_v = a_batch[valid_indices]
+            r_v = r_batch[valid_indices]
+            z_next_actual_v = z_next_actual[valid_indices]
 
-            # ---- Physics Loss ----
-            z_expand = z_batch.unsqueeze(1)
-            R_phys = torch.mean(torch.norm(z_expand - latents, dim=2) * weights)
+            z_next_pred = z_batch @ self.agent.Psi + a_batch @ self.agent.Gamma.t()
 
-            # ---- Performance Loss ----
-            J_perf = torch.mean(torch.sum(torch.log(weights + 1e-8), dim=1) * r_batch[:weights.shape[0]])
+            R_phys = torch.nn.functional.mse_loss(z_next_pred, z_next_actual)
+            J_perf = -torch.mean(r_batch * torch.log(weights + 1e-8))
 
-            loss = lambda_phys * R_phys - lambda_perf * J_perf
+            loss = lambda_phys * R_phys + lambda_perf * J_perf
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -114,7 +121,10 @@ class Trainer():
 
             self.agent.enforce_contractive_dynamics()
 
-            print(f"[TRAINING] Loss: {loss.item():.4f}")    
+            print(
+                f"[TRAINING] Transition Loss: {loss.item():.4f} | " +
+                f"R_phys: {R_phys.item():.4f} | J_perf: {J_perf.item():.4f}"
+            )    
         print(f"[TRAINING EPOCH COMPLETE]")
 
     """Total, collision, warning are only here!!!"""
@@ -127,6 +137,9 @@ class Trainer():
 
         ego_pos, _ = self.ego.get_world_pose()
         prev_dist = np.linalg.norm(self.ego_goal - ego_pos)
+
+        index = None
+        z_t = None
 
         success = 0
         total_step = 0
@@ -147,7 +160,6 @@ class Trainer():
 
             dir_to_goal = self.ego_goal - ego_pos
             dir_to_goal /= (np.linalg.norm(dir_to_goal) + 1e-6)
-
             base_vel = torch.from_numpy(dir_to_goal).float().to(device) * 3.0
 
             if event_list is None:
@@ -156,7 +168,7 @@ class Trainer():
             else:
                 total_step += 1
                 # 2. Decision Making: Calculate Action at time t
-                action, z_t, _, _ = self.agent.select_action(event_list, k=5)
+                action, z_t, _, _, index = self.agent.select_action(event_list, k=5)
                 final_action = base_vel + action
 
             self.ego_view.set_linear_velocities(
@@ -196,11 +208,13 @@ class Trainer():
                 if min_dist < 0:
                     reward_val = -10.0
                     print("[COLLISION] Collision encountered!")
+                    self.agent.memory.penalize_by_indices(index, factor=0.01)
                     COLLISION += 1
                 elif min_dist < SAFETY_THRESHOLD:
                     reward_val = -1.0 * (SAFETY_THRESHOLD - min_dist) / \
                         (min_dist + 1e-6)
                     print("[WARNING] Collision might happen!!!")
+                    self.agent.memory.penalize_by_indices(index, factor=0.5)
                     WARNING += 1
                 else:
                     reward_val = 0.1 * progress   # Add progress

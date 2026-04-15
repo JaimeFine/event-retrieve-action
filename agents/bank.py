@@ -10,20 +10,29 @@ class KnowledgeBank:
         # GPU tensors
         self.latents = torch.empty((0, latent_dim), device=device)
         self.actions = torch.empty((0, action_dim), device=device)
+        self.reliability = torch.empty((0, 1), device=device)
 
-        self.rewards = None
-        self.next_latents = None
-
-    def add_experiences(self, z_i, a_i, r_i=None, z_next=None):
+    def add_experiences(self, z_i, a_i, reward=None, z_next=None, rel=1.0):
         z_i = z_i.detach().to(device).view(1, -1)
         a_i = a_i.detach().float().to(device).view(1, -1)
+        rel = torch.tensor([[rel]], device=device)
 
         self.latents = torch.cat([self.latents, z_i], dim=0)
         self.actions = torch.cat([self.actions, a_i], dim=0)
+        self.reliability = torch.cat([self.reliability, rel], dim=0)
+
+        if self.latents.shape[0] > self.capacity:
+            self.latents = self.latents[1:]
+            self.actions = self.actions[1:]
+            self.reliability = self.reliability[1:]
+
+    def penalize_by_indices(self, indices, factor):
+        if indices is not None and len(indices) > 0:
+            self.reliability[indices] *= factor
 
     def retrieve(self, z_t, k=5, tau=0.1):
         if self.latents.shape[0] == 0:
-            return None, None, None
+            return None, None, None, None
         
         z_query = z_t.detach().to(device).view(1, -1)
 
@@ -39,6 +48,9 @@ class KnowledgeBank:
 
         retrieved_actions = self.actions[topk_indices]
         retrieved_latents = self.latents[topk_indices]
-        weights = torch.softmax(-topk_values / tau, dim=0)
 
-        return weights, retrieved_actions, retrieved_latents
+        rel_scores = self.reliability[topk_indices].squeeze(-1)
+        logits = (-topk_values / tau) + torch.log(rel_scores + 1e-8)
+        weights = torch.softmax(logits, dim=0)
+
+        return weights, retrieved_actions, retrieved_latents, topk_indices

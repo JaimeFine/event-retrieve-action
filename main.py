@@ -13,10 +13,7 @@ if __name__ == "__main__":
 
     sim = Environment(seed=seeds)
     sim.setup_environment()
-
-    successes = []
-    collisions = []
-
+    
     # 1. Load Pretrained Knowledge
     if os.path.exists("agent_pretrained.pt"):
         print("Loading pretrained weights...")
@@ -39,10 +36,9 @@ if __name__ == "__main__":
             z_t = sim.agent.encoder(event_list.to(device))
             # Add to memory so select_action has something to retrieve
             sim.agent.memory.add_experiences(z_t, action.to(device))
-        sim.agent.memory.build_index()
         print(
             f"Knowledge Bank initialized with \
-                {len(sim.agent.memory.maneuvers)} maneuvers."
+                {len(sim.agent.memory.actions)} maneuvers."
         )
 
     # 2. Run Adversarial Training
@@ -73,17 +69,11 @@ if __name__ == "__main__":
 
         s, c, w, d, t = sim.run(steps=1500, episode_seed=(100 + episode))
 
-        successes.append(s)
-        collisions.append(c > 0)
-
         print(f"\n=====================================================")
         print(f"COLLISION: {c / t}")
         print(f"WARNING: {w / t}")
         print(f"SUCCESS: {(t - w - c) / t}")
         print(f"=====================================================")
-
-    print(f"Success Rate: {np.mean(successes):.3f}")
-    print(f"Collision Rate: {np.mean(collisions):.3f}")
 
     # 3. Save the Fine-Tuned Model
     print("Saving fine-tuned model...")

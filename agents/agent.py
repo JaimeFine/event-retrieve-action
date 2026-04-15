@@ -59,9 +59,13 @@ class EventCentricAgent(nn.Module):
         z_t = self.encoder(event_data)
 
         if self.memory.latents.shape[0] == 0:
-            return torch.zeros(3, device=device), z_t, None, None
+            return torch.zeros(3, device=device), z_t, None, None, None
         
-        weights, actions, _ = self.memory.retrieve(z_t, k=k)
+        weights, actions, _, index = self.memory.retrieve(z_t, k=k)
+
+        if weights is None:
+            # fallback action
+            return torch.zeros(3, device=device), z_t, None, None, None
 
         # [GPU OPTIMIZATION] Stack actions to compute transitions
         # in one parallel forward pass
@@ -85,4 +89,5 @@ class EventCentricAgent(nn.Module):
                 valid_actions, valid_weights
             )
 
-        return final_action, z_t, valid_actions, valid_weights
+        return final_action, z_t, valid_actions, valid_weights, index
+    
