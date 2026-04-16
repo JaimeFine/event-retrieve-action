@@ -68,7 +68,11 @@ class Trainer():
 
     def train_agent(self, batch_size = BATCH_SIZE, epochs=EPOCHS):
         if len(self.experience_buffer) < batch_size:
-            return
+            return 0.0, 0.0
+        
+        epoch_r_phys = 0.0
+        epoch_j_perf = 0.0
+        valid_updates = 0
 
         for _ in range(epochs):
             # [GPU OPTIMIZATION] Vectorized experience sampling
@@ -121,11 +125,19 @@ class Trainer():
 
             self.agent.enforce_contractive_dynamics()
 
+            epoch_r_phys += R_phys.item()
+            epoch_j_perf += J_perf.item()
+            valid_updates += 1
+
             print(
                 f"[TRAINING] Transition Loss: {loss.item():.4f} | " +
                 f"R_phys: {R_phys.item():.4f} | J_perf: {J_perf.item():.4f}"
             )    
         print(f"[TRAINING EPOCH COMPLETE]")
+
+        if valid_updates == 0:
+            return 0.0, 0.0
+        return epoch_r_phys / valid_updates, epoch_j_perf / valid_updates
 
     """Total, collision, warning are only here!!!"""
     def run(self, steps, episode_seed):   # NOTE: 200 for 0.5 dt is 10 seconds
@@ -241,13 +253,18 @@ class Trainer():
             # print(f"[LOGGED S_t] Reward: {reward.item()}")
 
         intruder_loss = self.intruder_controller.update()
+
+        if torch.is_tensor(intruder_loss):
+            intruder_loss = intruder_loss.item()
+
         print(f"[INTRUDER TRAINING] Loss: {intruder_loss:.4f}")
 
-        self.train_agent()
+        avg_r_phys, avg_j_perf = self.train_agent()
 
         status = "SUCCESS" if success else "TIMEOUT/CRASH"
         print(f"--- Episode Summary: {status} | \
             Final Dist: {dist_to_goal:.2f}m ---")
         print(f"[COMPLETE] Collected {total_step} experiences.")
 
-        return success, COLLISION, WARNING, dist_to_goal, total_step
+        return success, COLLISION, WARNING, dist_to_goal, total_step, avg_r_phys, \
+            avg_j_perf, intruder_loss

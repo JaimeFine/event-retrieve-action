@@ -27,7 +27,7 @@ drone = np.array([1.0, 0.0, 0.0]) # Red
 static = np.array([0.5, 0.5, 0.5]) # Grey
 
 # Total Epochs for the main loop:
-total_epochs = 10
+total_epochs = 100
 
 # Number of Intruders in the Environment:
 NUM_INTRUDERS = 25

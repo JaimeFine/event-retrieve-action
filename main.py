@@ -1,18 +1,35 @@
 # pyright: reportMissingImports=false
 from omni.isaac.kit import SimulationApp
-
 simulation_app = SimulationApp({"headless": True})
 
 from macro import device, seeds, total_epochs
 from trainer import Environment
 import torch
 import numpy as np
+import os
+import json
+import time
+
+def set_deterministic_seeds(seed_value):
+    np.random.seed(seed_value)
+    torch.manual_seed(seed_value)
+    torch.cuda.manual_seed_all(seed_value)
 
 if __name__ == "__main__":
-    import os
-
+    set_deterministic_seeds(seeds)
     sim = Environment(seed=seeds)
     sim.setup_environment()
+    
+    training_logs = {
+        "episodes": [],
+        "success_rates": [],
+        "collision_rates": [],
+        "warning_rates": [],
+        "phys_losses": [],     # R_phys tracking
+        "perf_losses": [],     # J_perf tracking
+        "intruder_losses": [],
+        "knowledge_bank_size": []
+    }
     
     # 1. Load Pretrained Knowledge
     if os.path.exists("agent_pretrained.pt"):
@@ -42,9 +59,8 @@ if __name__ == "__main__":
         )
 
     # 2. Run Adversarial Training
-    print("Starting Curriculum Training...")
-    
-    goal_rng = np.random.RandomState(42)
+    print(f"Starting Curriculum Training for {total_epochs} episodes...")
+    goal_rng = np.random.RandomState(seeds)
 
     num_episodes = total_epochs
     for episode in range(num_episodes):
@@ -67,13 +83,26 @@ if __name__ == "__main__":
         print(f"Distance:  {np.linalg.norm(sim.ego_goal - sim.ego_start):.2f} m")
         print(f"=====================================================")
 
-        s, c, w, d, t = sim.run(steps=1500, episode_seed=(100 + episode))
+        s, c, w, d, t, r_phys, j_perf, i_loss = sim.run(
+            steps=1500, episode_seed=(seeds + episode)
+        )
+        safe_t = max(1, t)
+        success_rate = (t - w - c) / safe_t
+        col_rate = c / safe_t
+        warn_rate = w / safe_t
 
         print(f"\n=====================================================")
-        print(f"COLLISION: {c / t}")
-        print(f"WARNING: {w / t}")
-        print(f"SUCCESS: {(t - w - c) / t}")
+        print(f"COLLISION: {col_rate:.2f} | WARNING: {warn_rate:.2f} | SUCCESS: {success_rate:.2f}")
         print(f"=====================================================")
+
+        training_logs["episodes"].append(episode)
+        training_logs["success_rates"].append(float(success_rate))
+        training_logs["collision_rates"].append(float(col_rate))
+        training_logs["warning_rates"].append(float(warn_rate))
+        training_logs["phys_losses"].append(float(r_phys))
+        training_logs["perf_losses"].append(float(j_perf))
+        training_logs["intruder_losses"].append(float(i_loss))
+        training_logs["knowledge_bank_size"].append(int(len(sim.agent.memory.actions)))
 
     # 3. Save the Fine-Tuned Model
     print("Saving fine-tuned model...")
@@ -83,6 +112,16 @@ if __name__ == "__main__":
         "Gamma": sim.agent.Gamma.data,
     }, "agent_finetuned.pt")
 
-    print("Adversarial Training Complete.")
+    # 4. Save the Knowledge Bank Data
+    torch.save({
+        "latents": sim.agent.memory.latents.cpu(),
+        "actions": sim.agent.memory.actions.cpu(),
+        "reliability": sim.agent.memory.reliability.cpu()
+    }, "knowledge_bank_snapshot.pt")
 
+    # 5. Save the Training Logs
+    with open("training_results.json", "w") as f:
+        json.dump(training_logs, f, indent=4)
+
+    print("Adversarial Training Complete.")
     simulation_app.close()
