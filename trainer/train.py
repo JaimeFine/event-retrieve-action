@@ -108,7 +108,7 @@ class Trainer():
             z_next_pred = z_v @ self.agent.Psi + a_v @ self.agent.Gamma.t()
             R_phys = torch.nn.functional.mse_loss(z_next_pred, z_next_actual_v)
 
-            log_weights = torch.log(weights + 1e-6).clamp(min=-25.0)
+            log_weights = torch.log(weights + 1e-6).clamp(min=-5.0)
             J_perf = -torch.mean(r_batch * log_weights)
 
             loss = lambda_phys * R_phys + lambda_perf * J_perf
