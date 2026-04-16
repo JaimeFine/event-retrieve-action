@@ -8,7 +8,6 @@ import torch
 import numpy as np
 import os
 import json
-import time
 
 def set_deterministic_seeds(seed_value):
     np.random.seed(seed_value)
