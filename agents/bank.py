@@ -17,6 +17,11 @@ class KnowledgeBank:
         a_i = a_i.detach().float().to(device).view(1, -1)
         rel = torch.tensor([[rel]], device=device)
 
+        if rel is None:
+            rel = torch.clamp(torch.tensor([[reward]]), 0.0, 1.0)
+        else:
+            rel = torch.tensor([[rel]], device=device)
+
         self.latents = torch.cat([self.latents, z_i], dim=0)
         self.actions = torch.cat([self.actions, a_i], dim=0)
         self.reliability = torch.cat([self.reliability, rel], dim=0)

@@ -78,8 +78,7 @@ class Trainer():
             batch = [self.experience_buffer[i] for i in indices]
 
             batch = [b for b in batch if b[0] is not None and b[3] is not None]
-            if len(batch) == 0:
-                continue
+            if len(batch) == 0: continue
 
             E_t_batch = torch.stack([b[0].mean(dim=0) for b in batch]).to(device)
             a_batch = torch.stack([b[1] for b in batch]).to(device)
@@ -91,9 +90,7 @@ class Trainer():
                 z_batch = self.agent.encoder(E_t_batch)
                 z_next_actual = self.agent.encoder(E_next_batch)
 
-            weights_list = []
-            valid_indices = []
-
+            weights_list, valid_indices = [], []
             for i in range(len(z_batch)):
                 w, _, _, _ = self.agent.memory.retrieve(z_batch[i], k=5)
                 if w is not None:
@@ -108,15 +105,18 @@ class Trainer():
             r_v = r_batch[valid_indices]
             z_next_actual_v = z_next_actual[valid_indices]
 
-            z_next_pred = z_batch @ self.agent.Psi + a_batch @ self.agent.Gamma.t()
+            z_next_pred = z_v @ self.agent.Psi + a_v @ self.agent.Gamma.t()
+            R_phys = torch.nn.functional.mse_loss(z_next_pred, z_next_actual_v)
 
-            R_phys = torch.nn.functional.mse_loss(z_next_pred, z_next_actual)
-            J_perf = -torch.mean(r_batch * torch.log(weights + 1e-8))
+            log_weights = torch.log(weights + 1e-6).clamp(min=-25.0)
+            J_perf = -torch.mean(r_batch * log_weights)
 
             loss = lambda_phys * R_phys + lambda_perf * J_perf
 
             self.optimizer.zero_grad()
             loss.backward()
+            # NOTE: Diagnostic: Gradient Clipping
+            torch.nn.utils.clip_grad_norm_(self.agent.parameters(), max_norm=1.0)
             self.optimizer.step()
 
             self.agent.enforce_contractive_dynamics()
@@ -211,8 +211,7 @@ class Trainer():
                     self.agent.memory.penalize_by_indices(index, factor=0.01)
                     COLLISION += 1
                 elif min_dist < SAFETY_THRESHOLD:
-                    reward_val = -1.0 * (SAFETY_THRESHOLD - min_dist) / \
-                        (min_dist + 1e-6)
+                    reward_val = -1.0 * (SAFETY_THRESHOLD - min_dist) ** 2
                     print("[WARNING] Collision might happen!!!")
                     self.agent.memory.penalize_by_indices(index, factor=0.5)
                     WARNING += 1
