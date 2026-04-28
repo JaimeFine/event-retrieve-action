@@ -27,7 +27,6 @@ This repository implements an **Event-Centric Architecture** for autonomous dron
 * **Permutation-Invariant Encoder:** Processes a variable number of intruders using a batched `EventEncoder`.
 * **Stability-Guaranteed Dynamics:** Implements **Contractive Dynamics** via SVD-clamping of the transition matrix ($\Psi$).
 * **Bayesian Knowledge Retrieval:** Replaces "averaging" with a probabilistic selection to avoid the *Average-to-Collision* failure in "Fork" scenarios.
-* **Hardware-Ready:** Optimized for deployment on **NVIDIA Jetson Orin Nano** via TensorRT and ONNX.
 
 ### Structure:
 
@@ -51,6 +50,7 @@ event-retrieve-action/
 │   ├── base.py
 │   ├── bird.py
 │   ├── drone.py
+│   ├── policy.py
 │   └── static.py
 └── trainer/
     ├── __init__.py
@@ -94,7 +94,7 @@ The framework operates in three distinct phases:
 2. Manifold Mapping: The $d_{phys}$ regularizer ensures that physical distance in the simulator correlates to Euclidean distance in the latent space.
 3. Action Retrieval: The system queries a FAISS-indexed Knowledge Bank of ~27k expert maneuvers.
 
----
+<!---
 
 ## Results & Benchmarks
 The following results were obtained on an NVIDIA RTX 4090D:
@@ -102,7 +102,7 @@ The following results were obtained on an NVIDIA RTX 4090D:
 - Inference Latency: $< 2ms$ per step (achieving real-time parity for 400Hz control loops).
 - Cross-Platform Parity: MSE between 4090D and Jetson Orin Nano remains $< 10^{-6}$.
 
----
+--->
 
 ## License
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for details.
