@@ -7,6 +7,7 @@ It contains:
 - the bundled checkpoints and model artifacts
 - regenerated CSV / JSON benchmark outputs
 - regenerated figures used in the paper
+- deployment-side scalability analysis utilities for the Knowledge Bank appendix
 - a small set of supporting notes that were useful during analysis
 
 The bundle is meant to be deliverable on its own, without depending on the original working repositories.
@@ -21,6 +22,8 @@ Current top-level structure:
   Bundled checkpoints and model files used by the evaluation scripts.
 - `outputs/`
   Generated evaluation results, trajectory exports, and figure outputs.
+- `src/deployment/`
+  Deployment-oriented utilities, including latency, memory, and Knowledge Bank scalability analysis scripts.
 - `boxplots.pdf`
   Regenerated comparative trajectory-quality boxplot figure.
 - `run_table_regeneration.sh`
@@ -50,6 +53,7 @@ This bundle supports four main tasks:
    - `ERA w/o R_phys`
    - `ERA w/o CWS`
 4. Regeneration of paper-ready tables and figures from exported results.
+5. Deployment-facing scalability analysis of Knowledge Bank memory and retrieval latency.
 
 ## Important Interpretation Notes
 
@@ -145,6 +149,17 @@ These are still useful for visualization and inspection, but the corrected paper
 - `bruce_code/scripts/plot_ablation_3d.py`
   Ablation 3D trajectory figure.
 
+### Deployment appendix utilities
+
+- `src/deployment/scalability_analysis/benchmark_kb_scalability.py`
+  Benchmarks Knowledge Bank growth by loading saved snapshots and measuring payload memory plus retrieval latency.
+
+- `src/deployment/scalability_analysis/plot_kb_scalability.py`
+  Builds the dual-axis scalability figure used for the deployment / appendix discussion.
+
+- `src/deployment/scalability_analysis/outputs/`
+  Default location for the generated CSV, summary note, and scalability figures.
+
 ### Table builders
 
 - `bruce_code/scripts/build_metrics_table_csv.py`
@@ -192,6 +207,8 @@ Use standard Python for:
 - `bruce_code/scripts/build_metrics_table_csv.py`
 - `bruce_code/scripts/build_metrics_table_goal_reached_only_csv.py`
 - the plotting scripts that only read exported files
+- `src/deployment/scalability_analysis/benchmark_kb_scalability.py`
+- `src/deployment/scalability_analysis/plot_kb_scalability.py`
 
 ## Typical Workflow
 
@@ -283,6 +300,25 @@ python bruce_code\scripts\plot_boxplots_from_outputs.py `
   --success-only true `
   --output-pdf boxplots.pdf
 ```
+
+### 6. Regenerate deployment scalability appendix artifacts
+
+This workflow benchmarks the deployed Knowledge Bank retrieval kernel directly
+from the bundled snapshots in `datasets/checkpoints/full/`.
+
+Jetson / CUDA example:
+
+```powershell
+python src\deployment\scalability_analysis\benchmark_kb_scalability.py --device gpu
+python src\deployment\scalability_analysis\plot_kb_scalability.py
+```
+
+Default outputs:
+
+- `src/deployment/scalability_analysis/outputs/era_kb_scalability.csv`
+- `src/deployment/scalability_analysis/outputs/era_kb_scalability_summary.md`
+- `src/deployment/scalability_analysis/outputs/era_kb_scalability_dual_axis.pdf`
+- `src/deployment/scalability_analysis/outputs/era_kb_scalability_dual_axis.png`
 
 ## Supporting Reference Files
 
