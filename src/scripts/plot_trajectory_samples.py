@@ -125,8 +125,8 @@ def plot_combined_3d_trajectory(episodes: list[dict], sample_index: int, output_
         "acados": "#3a86ff",
     }
 
-    fig = plt.figure(figsize=(11, 8.5))
-    ax = fig.add_subplot(111, projection="3d")
+    fig = plt.figure(figsize=(10, 8.5))
+    ax = fig.add_axes([0.04, 0.08, 0.68, 0.84], projection="3d")
     goal_added = False
 
     for episode in episodes:
@@ -154,12 +154,12 @@ def plot_combined_3d_trajectory(episodes: list[dict], sample_index: int, output_
     ax.set_xlabel("X (m)")
     ax.set_ylabel("Y (m)")
     ax.set_zlabel("Z (m)")
-    ax.legend(loc="best")
+    ax.set_box_aspect((1.8, 1.2, 0.8))
+    ax.legend(loc="center left", bbox_to_anchor=(1.12, 0.5), borderaxespad=0.0)
     ax.grid(True, alpha=0.3)
-    fig.tight_layout()
 
     output_path = output_dir / f"all_methods_sample_{sample_index}_3d_path.png"
-    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    fig.savefig(output_path, dpi=220)
     plt.close(fig)
     return output_path
 
@@ -218,7 +218,7 @@ def plot_sample_overview(payload: dict, method_key: str, output_dir: Path) -> Pa
     fig.tight_layout()
 
     output_path = output_dir / f"{method_key}_sample_overview.png"
-    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    fig.savefig(output_path, dpi=200)
     plt.close(fig)
     return output_path
 
