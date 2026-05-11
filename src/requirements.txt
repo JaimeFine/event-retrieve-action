@@ -1,0 +1,13 @@
+﻿torch
+numpy
+stable-baselines3
+gymnasium
+onnx
+matplotlib
+# Runtime note:
+# - scripts/run_online_comparison.py and scripts/run_era_eval.py must be run
+#   with Isaac Sim Python (omni.isaac.kit), not plain system python.
+# Optional (vendor/manual install):
+# tensorrt
+# acados_template
+# casadi
