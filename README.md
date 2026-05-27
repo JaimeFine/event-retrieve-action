@@ -359,3 +359,41 @@ The most important items to preserve are:
 - `README.md`
 
 The `.gitignore` file is set up to avoid uploading Python cache files and other local noise.
+
+## Addendum: Verified Notes For This Packaged Copy
+
+This section is intentionally additive. It records a few points that can be
+verified directly from the current packaged repository.
+
+### Verified path mapping
+
+Some paths described above still use the older internal name `bruce_code/`,
+while the current packaged repository stores the corresponding code under
+`src/`.
+
+- `bruce_code/scripts/` corresponds to `src/scripts/`
+- `bruce_code/artifacts/` corresponds to `src/artifacts/`
+- `bruce_code/methods/` corresponds to `src/methods/`
+- `bruce_code/sim_shared/` corresponds to `src/sim_shared/`
+
+This is also reflected in `src/scripts/_bootstrap.py`, which loads `src/` as
+the package name `bruce_code`.
+
+### Verified runtime notes
+
+The current packaged scripts indicate two practical runtime requirements:
+
+1. Simulator-dependent evaluation scripts require Isaac Sim Python.
+   For example, `src/scripts/run_all_methods_trajectory_sampling.py` imports
+   `omni.isaac.kit.SimulationApp` and raises an error if it is not available.
+
+2. Some baseline dependencies are optional.
+   `src/requirements.txt` lists `stable-baselines3` and `gymnasium`, and
+   `src/scripts/run_all_methods_trajectory_sampling.py` contains logic to skip
+   PPO if those optional dependencies are missing.
+
+### Verified compatibility note
+
+`run_table_regeneration.sh` still references legacy `bruce_code/...` paths.
+Anyone running that script in the current packaged copy should check those path
+assumptions against the present `src/...` layout first.
